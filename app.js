@@ -154,8 +154,13 @@
     window.scrollTo(0, 0);
     const wrap = el("div", { class: "fade-in" });
 
-    wrap.appendChild(el("div", { class: "crumbs" },
-      `<span class="chip">${dateLabel(viewDate)}</span><span class="chip plain">難易度 ${dots(p.level)}</span>`));
+    const crumbs = el("div", { class: "crumbs" });
+    const backBtn = el("button", { class: "back-btn", type: "button", "aria-label": "5題の一覧に戻る" }, "☰ 一覧へ戻る");
+    backBtn.addEventListener("click", showList);
+    crumbs.appendChild(backBtn);
+    crumbs.appendChild(el("span", { class: "chip" }, dateLabel(viewDate)));
+    crumbs.appendChild(el("span", { class: "chip plain" }, `難易度 ${dots(p.level)}`));
+    wrap.appendChild(crumbs);
 
     const q = el("section", { class: "panel" });
     q.appendChild(el("div", { class: "q-no" }, `QUESTION ${i + 1}`));
@@ -291,7 +296,7 @@
     bottomNav.replaceChildren();
     const inner = el("div", { class: "bottom-inner" });
     const bp = el("button", { class: "btn ghost" }, "← 前へ");
-    const pager = el("button", { class: "link pager" }, `一覧 ・ ${i + 1} / 5`);
+    const pager = el("button", { class: "list-btn", type: "button", "aria-label": "5題の一覧に戻る" }, `<span>☰ 一覧へ</span><small>${i + 1} / 5</small>`);
     const bn = el("button", { class: "btn next" }, "次へ →");
     bp.disabled = i === 0;
     bn.disabled = i === 4;
@@ -302,6 +307,17 @@
     bottomNav.appendChild(inner);
 
     typeset(q);
+  }
+
+  // 画面上部のタイトルを押すと、今日の一覧(最初のページ)に戻る
+  const titleEl = document.querySelector(".site-header h1");
+  if (titleEl) {
+    titleEl.setAttribute("role", "button");
+    titleEl.setAttribute("tabindex", "0");
+    titleEl.setAttribute("aria-label", "今日の一覧に戻る");
+    const goHome = () => { viewDate = TODAY; showList(); };
+    titleEl.addEventListener("click", goHome);
+    titleEl.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); goHome(); } });
   }
 
   // KaTeXは defer 読み込みのため、全スクリプトが揃う load 後に描画する
