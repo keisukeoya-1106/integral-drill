@@ -1150,12 +1150,27 @@ $$\int_{${p * p}}^{${q * q}}\Bigl(x${plus ? "+" : "-"}2+\frac1x\Bigr)dx=\Bigl[\f
     const [y, m, d] = dateStr.split("-").map(Number);
     return Math.round(Date.UTC(y, m - 1, d) / 86400000 - EPOCH);
   }
+  // 表示用TeXの仕上げ。(1) 命令の直後に文字が続いた誤り(\cosx → \cos x、\toe → \to e)を直す
+  // (2) 自然対数は数学IIIの表記に合わせて \ln でなく \log で表示する
+  const TEX_WORDS = ["displaystyle", "arctan", "arcsin", "dfrac", "frac", "sqrt", "theta", "times", "cdots", "quad", "left", "right", "Bigl", "Bigr",
+    "mathrm", "text", "leqq", "geqq", "cdot", "int", "sin", "cos", "tan", "cot", "exp", "log", "ln", "pi", "pm", "to"];
+  const TEX_KNOWN = new Set(TEX_WORDS);
+  const TEX_BY_LEN = TEX_WORDS.slice().sort((a, b) => b.length - a.length);
+  function polish(s) {
+    if (typeof s !== "string") return s;
+    return s.replace(/\\([A-Za-z]+)/g, (m, w) => {
+      if (TEX_KNOWN.has(w)) return m;
+      const k = TEX_BY_LEN.find(x => w.startsWith(x));
+      return k ? "\\" + k + " " + w.slice(k.length) : m;
+    }).replace(/\\ln(?![A-Za-z])/g, "\\log");
+  }
   function build(type, rng, id) {
     const p = type.make(rng);
     const cat = CATS.find(c => c.key === type.cat);
     return {
-      id, cat: type.cat, catLabel: cat.label, level: type.level, hint: type.hint,
-      tex: integ(p.loTex, p.hiTex, p.body), ans: p.ans, steps: p.steps, f: p.f, lo: p.lo, hi: p.hi
+      id, cat: type.cat, catLabel: cat.label, level: type.level, hint: polish(type.hint),
+      tex: polish(integ(p.loTex, p.hiTex, p.body)), ans: { tex: polish(p.ans.tex), val: p.ans.val },
+      steps: polish(p.steps), f: p.f, lo: p.lo, hi: p.hi
     };
   }
   // 分野 cat の dateStr の問題
@@ -1174,7 +1189,7 @@ $$\int_{${p * p}}^{${q * q}}\Bigl(x${plus ? "+" : "-"}2+\frac1x\Bigr)dx=\Bigl[\f
     });
   }
 
-  const api = { dailySet, problemOf, poolOf, TYPES, CATS, makeRng, build, hashStr, GAP };
+  const api = { dailySet, problemOf, poolOf, TYPES, CATS, makeRng, build, hashStr, GAP, polish };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.IntegralGen = api;
 })(typeof window !== "undefined" ? window : globalThis);

@@ -33,7 +33,19 @@
   // あとから出題コード(タイプの追加など)を変えても、過去の日の問題は変わらない。
   const SNAP_KEY = "intdrill.snap.v1";
   const SNAP_KEEP_DAYS = 400;
-  function loadSnaps() { try { return JSON.parse(localStorage.getItem(SNAP_KEY)) || {}; } catch (e) { return {}; } }
+  // 保存済みの問題にも、表示の誤り(\cosx など)の修正と、自然対数の log 表記を当てる(何度当てても同じ結果)
+  function migrateSet(set) {
+    if (!Array.isArray(set)) return set;
+    const fx = IntegralGen.polish;
+    return set.map(p => ({ ...p, tex: fx(p.tex), hint: fx(p.hint), steps: fx(p.steps), ans: { tex: fx(p.ans.tex), val: p.ans.val } }));
+  }
+  function loadSnaps() {
+    try {
+      const s = JSON.parse(localStorage.getItem(SNAP_KEY)) || {};
+      Object.keys(s).forEach(k => { s[k] = migrateSet(s[k]); });
+      return s;
+    } catch (e) { return {}; }
+  }
   let snaps = loadSnaps();
   function saveSnaps() { try { localStorage.setItem(SNAP_KEY, JSON.stringify(snaps)); return true; } catch (e) { return false; } }
   function pruneSnaps() {
@@ -190,7 +202,7 @@
     const preview = el("div", { class: "preview" });
     // 関数電卓風キーパッド(5列)。type: 種別ごとに色を変える
     const KEYS = [
-      ["π", "π", "fn"], ["e", "e", "fn"], ["√", "√(", "fn"], ["ln", "ln(", "fn"], ["logₐ", "log_(", "fn"], ["xⁿ", "^", "fn"],
+      ["π", "π", "fn"], ["e", "e", "fn"], ["√", "√(", "fn"], ["log", "log(", "fn"], ["logₐ", "log_(", "fn"], ["xⁿ", "^", "fn"],
       ["7", "7"], ["8", "8"], ["9", "9"], ["(", "(", "op"], [")", ")", "op"], ["⌫", "@del", "ctl"],
       ["4", "4"], ["5", "5"], ["6", "6"], ["×", "×", "op"], ["/", "/", "op"], ["◀", "@left", "ctl"],
       ["1", "1"], ["2", "2"], ["3", "3"], ["+", "+", "op"], ["−", "-", "op"], ["▶", "@right", "ctl"],
@@ -222,7 +234,7 @@
     const peek = el("button", { class: "link peek-btn", style: "display:block;margin:6px auto 0" }, "答えを見る");
     const result = el("div");
     a.append(input, preview, kbd, del, judge, peek, result,
-      el("p", { class: "tip", id: "input-help" }, "分数は /(例: 1/2)、ルートは √( )、累乗は xⁿ(例: e^2)。ln は自然対数、logₐ は底つき(例: log_(2)(3) は log₂3)。入力した式は上に数式で表示されます。"));
+      el("p", { class: "tip", id: "input-help" }, "分数は /(例: 1/2)、ルートは √( )、累乗は xⁿ(例: e^2)。log は自然対数(底が e)、logₐ は底つき(例: log_(2)(3) は log₂3)。入力した式は上に数式で表示されます。"));
     wrap.appendChild(a);
 
     const explain = el("div");

@@ -180,7 +180,7 @@
         if (n.f === "sqrt") return `\\sqrt{${tex(stripParen(n.a))}}`;
         if (n.f === "exp") return `e^{${tex(stripParen(n.a))}}`;
         const inner = n.a.k === "num" || n.a.k === "pi" || n.a.k === "e" ? tex(n.a) : `\\left(${tex(stripParen(n.a))}\\right)`;
-        return `\\ln ${inner}`;
+        return `\\log ${inner}`; // 自然対数も問題文に合わせて log で表示する
       }
       case "bin": {
         if (n.op === "/") return `\\dfrac{${tex(stripParen(n.a))}}{${tex(stripParen(n.b))}}`;
