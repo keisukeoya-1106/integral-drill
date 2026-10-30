@@ -278,3 +278,34 @@ input[type=text] { caret-color: var(--accent); }
 .list-btn small { font-size: .7rem; font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
 .list-btn:active { transform: scale(.97); }
 .list-btn:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 2px; }
+
+/* ---------- タブ・復習リスト ---------- */
+.tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; margin-bottom: 16px; background: var(--line); border-radius: 14px; }
+.tab {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 42px; border: none; border-radius: 11px; background: transparent;
+  color: var(--muted); font: inherit; font-size: .9rem; font-weight: 600; cursor: pointer;
+}
+.tab[aria-selected="true"] { background: var(--surface); color: var(--accent); box-shadow: var(--shadow); }
+.tab-n { min-width: 22px; padding: 1px 7px; border-radius: 999px; background: var(--ng); color: #fff; font-size: .72rem; font-variant-numeric: tabular-nums; }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.filter {
+  display: inline-flex; align-items: center; gap: 7px; padding: 7px 13px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+  font: inherit; font-size: .82rem; font-weight: 600; cursor: pointer;
+}
+.filter span { font-size: .72rem; font-variant-numeric: tabular-nums; opacity: .8; }
+.filter[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.rv-row { display: flex; gap: 8px; align-items: stretch; }
+.rv-row .item { flex: 1; min-width: 0; }
+.rv-del {
+  flex: none; width: 44px; border-radius: var(--radius); border: 1px solid var(--line);
+  background: var(--surface); color: var(--faint); font-size: 1.3rem; cursor: pointer; box-shadow: var(--shadow);
+}
+.rv-del:hover { color: var(--ng); border-color: var(--ng); }
+.pips { display: inline-flex; gap: 5px; }
+.pips i { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--line); }
+.pips i.on { background: var(--ok); border-color: var(--ok); }
+.rv-note { margin: 8px 4px 0; font-size: .8rem; color: var(--muted); }
+.rv-note.ok { color: var(--ok); }
+.empty { padding: 28px 16px; text-align: center; color: var(--muted); font-size: .9rem; background: var(--surface); border: 1px dashed var(--line); border-radius: var(--radius); }

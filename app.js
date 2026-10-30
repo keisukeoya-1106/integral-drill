@@ -68,6 +68,52 @@
     return set;
   }
 
+  // ---------- 復習リスト ----------
+  // 間違えた問題(答えを見た場合も含む)を問題データごと保存する。同じ問題は1件にまとめ、
+  // 正解が2回連続したらリストから外す。間違えると連続回数は0に戻る。
+  // { 問題のtex: { tex, hint, steps, ans, catLabel, level, from, streak, at } }
+  const REVIEW_KEY = "intdrill.review.v1";
+  const REVIEW_NEED = 2;     // この回数だけ連続で正解したら外す
+  const REVIEW_MAX = 500;    // 容量の目安。超えたら間違えた日が古いものから消す
+  function loadReview() {
+    try {
+      const r = JSON.parse(localStorage.getItem(REVIEW_KEY)) || {};
+      const fx = IntegralGen.polish; // 表示の修正は保存済みの問題にも当てる
+      Object.keys(r).forEach(k => {
+        const v = r[k];
+        r[k] = { ...v, tex: fx(v.tex), hint: fx(v.hint), steps: fx(v.steps), ans: { tex: fx(v.ans.tex), val: v.ans.val } };
+      });
+      return r;
+    } catch (e) { return {}; }
+  }
+  let review = loadReview();
+  function saveReview() { try { localStorage.setItem(REVIEW_KEY, JSON.stringify(review)); } catch (e) { /* 保存できなくても動作は続ける */ } }
+  const reviewList = () => Object.keys(review).map(k => ({ k, ...review[k] })).sort((a, b) => b.at - a.at);
+  // 間違えた問題を登録する。新しく加わったときだけ true
+  function reviewAdd(p, date) {
+    const isNew = !review[p.tex];
+    review[p.tex] = {
+      tex: p.tex, hint: p.hint, steps: p.steps, ans: p.ans, catLabel: p.catLabel, level: p.level,
+      from: date, streak: 0, at: Date.now()
+    };
+    const keys = Object.keys(review);
+    if (keys.length > REVIEW_MAX) {
+      keys.sort((a, b) => review[a].at - review[b].at).slice(0, keys.length - REVIEW_MAX).forEach(k => delete review[k]);
+    }
+    saveReview();
+    return isNew;
+  }
+  // 正解を記録する。リストから外れたとき "removed"、連続回数が増えたとき "up"、対象外は null
+  function reviewCorrect(p) {
+    const r = review[p.tex];
+    if (!r) return null;
+    r.streak++;
+    if (r.streak >= REVIEW_NEED) { delete review[p.tex]; saveReview(); return "removed"; }
+    saveReview();
+    return "up";
+  }
+  function reviewRemove(tex) { delete review[tex]; saveReview(); }
+
   const doneCount = date => [0, 1, 2, 3, 4].filter(i => stOf(date, i) === "done").length;
   function streak() {
     let d = TODAY, n = 0;
@@ -96,7 +142,23 @@
     for (let i = 1; i <= MAX_LEVEL; i++) s += `<i class="${i <= level ? "on" : ""}"></i>`;
     return s + "</span>";
   }
+  let mode = "daily"; // "daily" = 今日の5題、"review" = 復習リスト
+  function tabs() {
+    const t = el("div", { class: "tabs", role: "tablist" });
+    const a = el("button", { class: "tab", role: "tab", "aria-selected": String(mode === "daily") }, "今日の5題");
+    const n = Object.keys(review).length;
+    const b = el("button", { class: "tab", role: "tab", "aria-selected": String(mode === "review") }, `復習リスト${n ? `<span class="tab-n">${n}</span>` : ""}`);
+    a.addEventListener("click", () => { if (mode !== "daily") { viewDate = TODAY; showList(); } });
+    b.addEventListener("click", () => { if (mode !== "review") showReview(); });
+    t.append(a, b);
+    return t;
+  }
   function updateSummary() {
+    if (mode === "review") {
+      summary.innerHTML = `復習 <b>${Object.keys(review).length}</b> 問`;
+      barFill.style.width = "0%";
+      return;
+    }
     const n = doneCount(viewDate);
     summary.innerHTML = `<b>${n}</b> / 5 問 正解`;
     barFill.style.width = n / 5 * 100 + "%";
@@ -105,12 +167,14 @@
 
   // ---------- 一覧 ----------
   function showList() {
+    mode = "daily";
     updateSummary();
     bottomNav.hidden = true;
     app.replaceChildren();
     window.scrollTo(0, 0);
     const set = getSet(viewDate);
     const wrap = el("div", { class: "fade-in" });
+    wrap.appendChild(tabs());
 
     const nav = el("div", { class: "datenav" });
     const prev = el("button", { class: "iconbtn", "aria-label": "前の日" }, "‹");
@@ -160,17 +224,28 @@
   // ---------- 問題 ----------
   function showProblem(i) {
     const set = getSet(viewDate);
-    const p = set[i];
+    renderProblem(set[i], {
+      chip: dateLabel(viewDate), back: showList, backAria: "5題の一覧に戻る",
+      pos: i + 1, total: set.length, go: d => showProblem(i + d),
+      // 正解済みの問題を間違えても、復習には足さない(解き直しの確認だったと見なす)
+      isWrongNew: () => stOf(viewDate, i) !== "done",
+      mark: status => { setSt(viewDate, i, status); updateSummary(); },
+      date: viewDate
+    });
+  }
+
+  function renderProblem(p, ctx) {
+    const i = ctx.pos - 1;
     updateSummary();
     app.replaceChildren();
     window.scrollTo(0, 0);
     const wrap = el("div", { class: "fade-in" });
 
     const crumbs = el("div", { class: "crumbs" });
-    const backBtn = el("button", { class: "back-btn", type: "button", "aria-label": "5題の一覧に戻る" }, "☰ 一覧へ戻る");
-    backBtn.addEventListener("click", showList);
+    const backBtn = el("button", { class: "back-btn", type: "button", "aria-label": ctx.backAria }, "☰ 一覧へ戻る");
+    backBtn.addEventListener("click", ctx.back);
     crumbs.appendChild(backBtn);
-    crumbs.appendChild(el("span", { class: "chip" }, dateLabel(viewDate)));
+    crumbs.appendChild(el("span", { class: "chip" }, ctx.chip));
     crumbs.appendChild(el("span", { class: "chip plain" }, `難易度 ${dots(p.level)}`));
     wrap.appendChild(crumbs);
 
@@ -281,7 +356,15 @@
       result.appendChild(r);
       typeset(r);
     }
-    function mark(status) { setSt(viewDate, i, status); updateSummary(); }
+    const mark = ctx.mark;
+    // 間違い(近似の答えを含む)は復習リストへ。登録の旨は結果の下に小さく添える
+    let solved = false; // この画面で正解したあとは、連続回数の加算も復習への追加もしない
+    function noteWrong() {
+      if (solved || !ctx.isWrongNew()) return;
+      const had = !!review[p.tex];
+      reviewAdd(p, ctx.date);
+      if (!had) result.appendChild(el("div", { class: "rv-note" }, "復習リストに追加しました"));
+    }
 
     function check() {
       if (!input.value.trim()) { input.focus(); return; }
@@ -289,16 +372,21 @@
       if (j.status === "invalid") setResult("ng", "!", j.error || "式を読み取れませんでした");
       else if (j.status === "correct") {
         input.classList.add("ok");
+        const rv = solved ? null : reviewCorrect(p);
+        solved = true;
         setResult("ok", "✓", "正解です");
+        if (rv === "removed") result.appendChild(el("div", { class: "rv-note ok" }, `${REVIEW_NEED}回連続で正解したので、復習リストから外しました`));
+        else if (rv === "up") result.appendChild(el("div", { class: "rv-note ok" }, `復習リスト: 連続正解 ${review[p.tex].streak} / ${REVIEW_NEED}`));
         mark("done");
         showExplain();
-      } else if (j.status === "approx") setResult("ng", "≒", "近い値です。小数ではなく、π や ln を使った正確な形で答えてください");
-      else setResult("ng", "✕", "惜しい、もう一度考えてみましょう");
+      } else if (j.status === "approx") { setResult("ng", "≒", "近い値です。小数ではなく、π や ln を使った正確な形で答えてください"); noteWrong(); }
+      else { setResult("ng", "✕", "惜しい、もう一度考えてみましょう"); noteWrong(); }
     }
     judge.addEventListener("click", check);
     input.addEventListener("keydown", e => { if (e.key === "Enter") check(); });
     peek.addEventListener("click", () => {
       setResult("peek", "👁", `答え　$${p.ans.tex}$`);
+      noteWrong();
       mark("peek");
       showExplain();
     });
@@ -308,17 +396,81 @@
     bottomNav.replaceChildren();
     const inner = el("div", { class: "bottom-inner" });
     const bp = el("button", { class: "btn ghost" }, "← 前へ");
-    const pager = el("button", { class: "list-btn", type: "button", "aria-label": "5題の一覧に戻る" }, `<span>☰ 一覧へ</span><small>${i + 1} / 5</small>`);
+    const pager = el("button", { class: "list-btn", type: "button", "aria-label": ctx.backAria }, `<span>☰ 一覧へ</span><small>${ctx.pos} / ${ctx.total}</small>`);
     const bn = el("button", { class: "btn next" }, "次へ →");
-    bp.disabled = i === 0;
-    bn.disabled = i === 4;
-    bp.addEventListener("click", () => showProblem(i - 1));
-    bn.addEventListener("click", () => showProblem(i + 1));
-    pager.addEventListener("click", showList);
+    bp.disabled = ctx.pos === 1;
+    bn.disabled = ctx.pos === ctx.total;
+    bp.addEventListener("click", () => ctx.go(-1));
+    bn.addEventListener("click", () => ctx.go(1));
+    pager.addEventListener("click", ctx.back);
     inner.append(bp, pager, bn);
     bottomNav.appendChild(inner);
 
     typeset(q);
+  }
+
+  // ---------- 復習リスト画面 ----------
+  let reviewFilter = "all"; // "all" または分野名(catLabel)
+  function showReview() {
+    mode = "review";
+    updateSummary();
+    bottomNav.hidden = true;
+    app.replaceChildren();
+    window.scrollTo(0, 0);
+    const wrap = el("div", { class: "fade-in" });
+    wrap.appendChild(tabs());
+
+    const all = reviewList();
+    const cats = IntegralGen.CATS.map(c => c.label);
+    if (reviewFilter !== "all" && !all.some(r => r.catLabel === reviewFilter)) reviewFilter = "all"; // 絞り込み先が空になったら全てへ
+    if (all.length) {
+      const chips = el("div", { class: "filters", role: "group", "aria-label": "分野で絞り込む" });
+      [["all", "すべて", all.length]].concat(cats.map(c => [c, c, all.filter(r => r.catLabel === c).length])).forEach(([key, label, n]) => {
+        if (key !== "all" && n === 0) return; // 該当のない分野は出さない
+        const b = el("button", { class: "filter", "aria-pressed": String(reviewFilter === key) }, `${label}<span>${n}</span>`);
+        b.addEventListener("click", () => { reviewFilter = key; showReview(); });
+        chips.appendChild(b);
+      });
+      wrap.appendChild(chips);
+    }
+
+    const rows = reviewFilter === "all" ? all : all.filter(r => r.catLabel === reviewFilter);
+    wrap.appendChild(el("div", { class: "section-label" }, "間違えた問題　" + `${REVIEW_NEED}回連続で正解すると外れます`));
+    if (!rows.length) {
+      wrap.appendChild(el("div", { class: "empty" }, all.length ? "この分野の問題はありません。" : "復習する問題はありません。間違えた問題は自動でここにたまります。"));
+    }
+    const list = el("div", { class: "list" });
+    rows.forEach((r, idx) => {
+      const row = el("div", { class: "rv-row" });
+      let pips = "";
+      for (let n = 0; n < REVIEW_NEED; n++) pips += `<i class="${n < r.streak ? "on" : ""}"></i>`;
+      const b = el("button", { class: "item", "data-st": r.streak > 0 ? "done" : "todo" },
+        `<span class="num">${idx + 1}</span>
+         <span style="min-width:0"><span class="item-integral">$${r.tex}$</span>
+           <span class="item-meta">${dots(r.level)}<span>${r.catLabel}</span><span>${dateLabel(r.from)}</span></span></span>
+         <span class="pips" aria-label="連続正解 ${r.streak} / ${REVIEW_NEED}">${pips}</span>`);
+      b.addEventListener("click", () => showReviewProblem(rows, idx));
+      const del = el("button", { class: "rv-del", type: "button", "aria-label": "復習リストから外す" }, "×");
+      del.addEventListener("click", () => {
+        if (confirm("この問題を復習リストから外しますか？")) { reviewRemove(r.tex); showReview(); }
+      });
+      row.append(b, del);
+      list.appendChild(row);
+    });
+    wrap.appendChild(list);
+    app.appendChild(wrap);
+    typeset(list);
+  }
+
+  function showReviewProblem(rows, idx) {
+    const r = rows[idx];
+    renderProblem(r, {
+      chip: `復習　${dateLabel(r.from)}の問題`, back: showReview, backAria: "復習リストに戻る",
+      pos: idx + 1, total: rows.length, go: d => showReviewProblem(rows, idx + d),
+      isWrongNew: () => true,
+      mark: () => updateSummary(), // 日ごとの記録(正解/答えを見た)は動かさず、件数表示だけ更新する
+      date: r.from
+    });
   }
 
   // 画面上部のタイトルを押すと、今日の一覧(最初のページ)に戻る
