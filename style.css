@@ -90,6 +90,7 @@ main { max-width: 720px; margin: 0 auto; padding: 20px 20px 120px; }
 }
 .item[data-st="done"] .num { background: var(--ok-soft); color: var(--ok); }
 .item[data-st="peek"] .num { background: var(--peek-soft); color: var(--peek); }
+.item[data-st="wrong"] .num { background: var(--ng-soft); color: var(--ng); }
 .item-title { font-weight: 600; line-height: 1.5; }
 .item-meta { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: .8rem; margin-top: 2px; flex-wrap: wrap; }
 .dots { display: inline-flex; gap: 3px; align-items: center; }
@@ -98,6 +99,26 @@ main { max-width: 720px; margin: 0 auto; padding: 20px 20px 120px; }
 .status { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; border: 2px solid var(--line); color: transparent; font-size: .8rem; font-weight: 700; }
 .item[data-st="done"] .status { background: var(--ok); border-color: var(--ok); color: #fff; }
 .item[data-st="peek"] .status { background: var(--peek-soft); border-color: var(--peek); color: var(--peek); }
+.item[data-st="wrong"] .status { background: var(--ng-soft); border-color: var(--ng); color: var(--ng); }
+
+/* ---------- 答えを見て〇×を自分で付ける ---------- */
+.self-ans { margin-top: 14px; padding: 14px 16px; border-radius: 12px; background: var(--accent-soft); overflow-x: auto; }
+.self-ans .lab { display: block; font-size: .72rem; letter-spacing: .1em; color: var(--muted); }
+.self-ans .self-fm { margin-top: 4px; color: var(--text); }
+.self-ans .katex { font-size: 1.3em; }
+.self-q { margin: 16px 2px 8px; font-size: .9rem; color: var(--muted); }
+.self-judge { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.sj {
+  min-height: 56px; border-radius: 12px; border: 2px solid var(--line); background: var(--surface);
+  font: inherit; font-size: 1.05rem; font-weight: 700; cursor: pointer; transition: transform .1s ease, background .15s ease;
+}
+.sj:not(:disabled):active { transform: scale(.97); }
+.sj.o { color: var(--ok); border-color: var(--ok); }
+.sj.x { color: var(--ng); border-color: var(--ng); }
+.sj.o.picked { background: var(--ok-soft); }
+.sj.x.picked { background: var(--ng-soft); }
+.sj:disabled { cursor: default; }
+.sj:disabled:not(.picked) { opacity: .4; }
 
 .all-clear {
   margin-bottom: 14px; padding: 14px 16px; border-radius: var(--radius);

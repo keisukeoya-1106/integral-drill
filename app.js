@@ -199,7 +199,7 @@
     const list = el("div", { class: "list" });
     set.forEach((p, i) => {
       const st = stOf(viewDate, i) || "todo";
-      const mark = st === "done" ? "✓" : st === "peek" ? "👁" : "";
+      const mark = st === "done" ? "✓" : st === "wrong" ? "✕" : st === "peek" ? "👁" : "";
       const b = el("button", { class: "item", "data-st": st },
         `<span class="num">${i + 1}</span>
          <span style="min-width:0"><span class="item-integral">$${p.tex}$</span>
@@ -267,88 +267,22 @@
     wrap.appendChild(q);
 
     const a = el("section", { class: "panel" });
-    const labelRow = el("div", { class: "label-row" });
-    labelRow.appendChild(el("label", { class: "field-label", for: "ans" }, "あなたの答え"));
-    const helpLink = el("button", { type: "button", class: "help-link" }, "入力方法の説明はページ下部");
-    helpLink.addEventListener("click", () => document.getElementById("input-help").scrollIntoView({ behavior: "smooth", block: "center" }));
-    labelRow.appendChild(helpLink);
-    a.appendChild(labelRow);
-    const input = el("input", { type: "text", id: "ans", inputmode: "none", autocomplete: "off", autocapitalize: "off", spellcheck: "false", placeholder: "下のキーで入力" });
-    const preview = el("div", { class: "preview" });
-    // 関数電卓風キーパッド(5列)。type: 種別ごとに色を変える
-    const KEYS = [
-      ["π", "π", "fn"], ["e", "e", "fn"], ["√", "√(", "fn"], ["log", "log(", "fn"], ["logₐ", "log_(", "fn"], ["xⁿ", "^", "fn"],
-      ["7", "7"], ["8", "8"], ["9", "9"], ["(", "(", "op"], [")", ")", "op"], ["⌫", "@del", "ctl"],
-      ["4", "4"], ["5", "5"], ["6", "6"], ["×", "×", "op"], ["/", "/", "op"], ["◀", "@left", "ctl"],
-      ["1", "1"], ["2", "2"], ["3", "3"], ["+", "+", "op"], ["−", "-", "op"], ["▶", "@right", "ctl"],
-      ["0", "0", "span2"], [".", "."], ["すべて消す", "@clear", "ctl span3"]
-    ];
-    const kbd = el("div", { class: "kbd", role: "group", "aria-label": "入力キー" });
-    KEYS.forEach(([label, ins, type]) => {
-      const b = el("button", { type: "button", class: type || "" }, label);
-      b.addEventListener("pointerdown", e => e.preventDefault()); // 入力欄のカーソル位置を保つ
-      b.addEventListener("click", () => {
-        if (ins === "@left") moveCursor(-1);
-        else if (ins === "@right") moveCursor(1);
-        else if (ins === "@del") backspace();
-        else if (ins === "@clear") { input.value = ""; input.dispatchEvent(new Event("input")); }
-        else insertText(ins);
-      });
-      kbd.appendChild(b);
-    });
-    const del = el("div", { class: "kbd-tools" });
-    const sysBtn = el("button", { type: "button", class: "link" }, "⌨ 通常のキーボードで入力");
-    sysBtn.addEventListener("click", () => {
-      const sys = input.getAttribute("inputmode") === "none";
-      input.setAttribute("inputmode", sys ? "text" : "none");
-      sysBtn.textContent = sys ? "⌨ 電卓キーパッドに戻す" : "⌨ 通常のキーボードで入力";
-      input.blur(); input.focus();
-    });
-    del.append(sysBtn);
-    const judge = el("button", { class: "btn block", style: "margin-top:12px" }, "答え合わせ");
-    const peek = el("button", { class: "link peek-btn", style: "display:block;margin:6px auto 0" }, "答えを見る");
+    a.appendChild(el("div", { class: "field-label" }, "ノートに解いてから、答えを見ましょう"));
+    const reveal = el("button", { type: "button", class: "btn block" }, "答えを見る");
+    const slot = el("div");
     const result = el("div");
-    a.append(input, preview, kbd, del, judge, peek, result,
-      el("p", { class: "tip", id: "input-help" }, "分数は /(例: 1/2)、ルートは √( )、累乗は xⁿ(例: e^2)。log は自然対数(底が e)、logₐ は底つき(例: log_(2)(3) は log₂3)。入力した式は上に数式で表示されます。"));
+    a.append(reveal, slot, result);
     wrap.appendChild(a);
 
     const explain = el("div");
     wrap.appendChild(explain);
     app.appendChild(wrap);
 
-    function insertText(s) {
-      const st = input.selectionStart ?? input.value.length, en = input.selectionEnd ?? input.value.length;
-      input.value = input.value.slice(0, st) + s + input.value.slice(en);
-      const pos = st + s.length;
-      input.setSelectionRange(pos, pos);
-      input.dispatchEvent(new Event("input"));
-    }
-    function moveCursor(d) {
-      const pos = Math.max(0, Math.min(input.value.length, (input.selectionStart ?? input.value.length) + d));
-      input.setSelectionRange(pos, pos);
-    }
-    function backspace() {
-      const st = input.selectionStart ?? input.value.length, en = input.selectionEnd ?? input.value.length;
-      if (st !== en) { input.value = input.value.slice(0, st) + input.value.slice(en); input.setSelectionRange(st, st); }
-      else if (st > 0) { input.value = input.value.slice(0, st - 1) + input.value.slice(st); input.setSelectionRange(st - 1, st - 1); }
-      input.dispatchEvent(new Event("input"));
-    }
-
-    function renderPreview() {
-      if (!input.value.trim()) { preview.innerHTML = ""; return; }
-      const r = ExprParse.evaluate(input.value);
-      if (!r.ok) { preview.innerHTML = `<span class="lab">${r.error || "入力中…"}</span>`; return; }
-      preview.innerHTML = `<span class="lab">入力</span><span>$${r.tex}$</span>`;
-      typeset(preview);
-    }
-    input.addEventListener("input", () => { result.replaceChildren(); input.classList.remove("ok"); renderPreview(); });
-
     function showExplain() {
       if (explain.firstChild) return;
       const box = el("section", { class: "panel explain" }, `<h3>解説　<span style="letter-spacing:0;font-weight:500;color:var(--muted)">${p.catLabel}</span></h3>${p.steps}`);
       explain.appendChild(box);
       typeset(box);
-      setTimeout(() => box.scrollIntoView({ behavior: "smooth", block: "nearest" }), 60);
     }
     function setResult(cls, icon, html) {
       result.replaceChildren();
@@ -366,29 +300,40 @@
       if (!had) result.appendChild(el("div", { class: "rv-note" }, "復習リストに追加しました"));
     }
 
-    function check() {
-      if (!input.value.trim()) { input.focus(); return; }
-      const j = ExprParse.judge(input.value, p.ans.val);
-      if (j.status === "invalid") setResult("ng", "!", j.error || "式を読み取れませんでした");
-      else if (j.status === "correct") {
-        input.classList.add("ok");
-        const rv = solved ? null : reviewCorrect(p);
-        solved = true;
-        setResult("ok", "✓", "正解です");
-        if (rv === "removed") result.appendChild(el("div", { class: "rv-note ok" }, `${REVIEW_NEED}回連続で正解したので、復習リストから外しました`));
-        else if (rv === "up") result.appendChild(el("div", { class: "rv-note ok" }, `復習リスト: 連続正解 ${review[p.tex].streak} / ${REVIEW_NEED}`));
-        mark("done");
+    // 答えを見る → 自分で〇/×を付ける。×は復習リストに入る
+    let judged = false;
+    reveal.addEventListener("click", () => {
+      reveal.remove();
+      slot.appendChild(el("div", { class: "self-ans" }, `<span class="lab">答え</span><div class="self-fm">$${p.ans.tex}$</div>`));
+      slot.appendChild(el("div", { class: "self-q" }, "あなたの答えは合っていましたか？"));
+      const row = el("div", { class: "self-judge" });
+      const o = el("button", { type: "button", class: "sj o" }, "〇　合っていた");
+      const x = el("button", { type: "button", class: "sj x" }, "×　間違えた");
+      const fin = ok => {
+        if (judged) return;
+        judged = true;
+        o.disabled = x.disabled = true;
+        (ok ? o : x).classList.add("picked");
+        if (ok) {
+          const rv = solved ? null : reviewCorrect(p);
+          solved = true;
+          setResult("ok", "✓", "〇　正解として記録しました");
+          if (rv === "removed") result.appendChild(el("div", { class: "rv-note ok" }, `${REVIEW_NEED}回連続で正解したので、復習リストから外しました`));
+          else if (rv === "up") result.appendChild(el("div", { class: "rv-note ok" }, `復習リスト: 連続正解 ${review[p.tex].streak} / ${REVIEW_NEED}`));
+          mark("done");
+        } else {
+          setResult("ng", "✕", "×　不正解として記録しました");
+          noteWrong();
+          mark("wrong");
+        }
         showExplain();
-      } else if (j.status === "approx") { setResult("ng", "≒", "近い値です。小数ではなく、π や ln を使った正確な形で答えてください"); noteWrong(); }
-      else { setResult("ng", "✕", "惜しい、もう一度考えてみましょう"); noteWrong(); }
-    }
-    judge.addEventListener("click", check);
-    input.addEventListener("keydown", e => { if (e.key === "Enter") check(); });
-    peek.addEventListener("click", () => {
-      setResult("peek", "👁", `答え　$${p.ans.tex}$`);
-      noteWrong();
-      mark("peek");
-      showExplain();
+      };
+      o.addEventListener("click", () => fin(true));
+      x.addEventListener("click", () => fin(false));
+      row.append(o, x);
+      slot.appendChild(row);
+      typeset(slot);
+      setTimeout(() => row.scrollIntoView({ behavior: "smooth", block: "nearest" }), 60);
     });
 
     // 下部ナビ
